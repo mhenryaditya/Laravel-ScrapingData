@@ -16,7 +16,7 @@ class EdurankMPeringkatController extends Controller
      */
     public function index(Request $request)
     {
-        $query = EdurankMPeringkat::query()->with('metriks');
+        $query = EdurankMPeringkat::query();
 
         // search by name
         if ($request->has('nama_universitas')) {
@@ -40,11 +40,7 @@ class EdurankMPeringkatController extends Controller
                 $q->where('id', 'like', "%$search%")
                     ->orWhere('nama_universitas', 'like', "%$search%")
                     ->orWhere('peringkat_asia', 'like', "%$search%")
-                    ->orWhere('peringkat_dunia', 'like', "%$search%")
-                    ->orWhere(function ($q) use ($search) {
-                        $q->where('nama_metriks_lengkap', 'like', "%$search%")
-                            ->orWhere('nama_metriks_singkat', 'like', "%$search%");
-                    });
+                    ->orWhere('peringkat_dunia', 'like', "%$search%");
             });
         }
 
