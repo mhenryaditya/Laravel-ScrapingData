@@ -23,7 +23,7 @@ Route::delete('sinta/deleted/{id}', [SintaMPeringkatController::class, 'permanet
 Route::resource('sinta', SintaMPeringkatController::class);
 
 // UIGM M Peringkat
-Route::post('uigm/m/import', [UIGMMPeringkatController::class, 'import']);
+Route::post('uigm/mpr/import', [UIGMMPeringkatController::class, 'import']);
 Route::get('uigm/mpr/deleted', [UIGMMPeringkatController::class, 'showSoftDelete']);
 Route::get('uigm/mpr/deleted/{id}', [UIGMMPeringkatController::class, 'restoreSoftDelete']);
 Route::delete('uigm/mpr/deleted/{id}', [UIGMMPeringkatController::class, 'permanetDelSoftDelete']);

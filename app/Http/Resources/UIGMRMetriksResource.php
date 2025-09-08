@@ -16,10 +16,8 @@ class UIGMRMetriksResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'nama_universitas' => $this->nama_universitas,
-            'id_metriks' => $this->id_metriks,
-            'skor' => $this->skor,
-            'peringkat_dunia' => $this->peringkat_dunia,
+            'nama_metriks_singkat' => $this->nama_metriks_singkat,
+            'nama_metriks_lengkap' => $this->nama_metriks_lengkap,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'deleted_at' => $this->deteled_at

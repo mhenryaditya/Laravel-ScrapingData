@@ -16,8 +16,11 @@ class UIGMMPeringkatResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'nama_metriks_lengkap' => $this->nama_metriks_lengkap,
-            'nama_metriks_singkat' => $this->nama_metriks_singkat,
+            'nama_universitas' => $this->nama_universitas,
+            'id_metriks' => $this->id_metriks,
+            'skor' => $this->skor,
+            'metriks' => $this->metriks,
+            'peringkat_dunia' => $this->peringkat_dunia,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'deleted_at' => $this->deteled_at

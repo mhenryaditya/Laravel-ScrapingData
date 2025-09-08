@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Helper\FormatResponse;
 use App\Http\Resources\UIGMMPeringkatResource;
 use App\Models\UIGMMPeringkat;
+use App\Models\UIGMRMetriks;
 use Box\Spout\Reader\Common\Creator\ReaderEntityFactory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -24,28 +25,28 @@ class UIGMMPeringkatController extends Controller
         }
 
         // Filtering by minimum column value
-        if ($request->has('score_min_name')) {
-            $query->where($request->input('score_min_name'), '>=', $request->input('sinta_score'));
+        if ($request->has('skor_min_name')) {
+            $query->where($request->input('skor_min_name'), '>=', $request->input('sinta_skor'));
         }
 
         // Filtering by maximum column value
-        if ($request->has('score_max_name')) {
-            $query->where($request->input('score_max_name'), '<=', $request->input('sinta_score'));
+        if ($request->has('skor_max_name')) {
+            $query->where($request->input('skor_max_name'), '<=', $request->input('sinta_skor'));
         }
 
-        // Search across multiple fields
+        // Search across multiple fields, including related metriks columns
         if ($request->has('search')) {
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('id', 'like', "%$search%")
                     ->orWhere('nama_universitas', 'like', "%$search%")
-                    ->orWhere('score', 'like', "%$search%")
-                    ->orWhere('peringkat_dunia', 'like', "%$search%")
-                    ->orWhere(function ($q) use ($search) {
-                        $q->where('nama_metriks_lengkap', 'like', "%$search%")
-                            ->orWhere('nama_metriks_singkat', 'like', "%$search%");
-                    });
-            });
+                    ->orWhere('skor', 'like', "%$search%")
+                    ->orWhere('peringkat_dunia', 'like', "%$search%");
+            })
+                ->orWhereHas('metriks', function ($q) use ($search) {
+                    $q->where('nama_metriks_lengkap', 'like', "%$search%")
+                        ->orWhere('nama_metriks_singkat', 'like', "%$search%");
+                });
         }
 
         return FormatResponse::formatResponse($query, UIGMMPeringkatResource::class, $request);
@@ -66,15 +67,19 @@ class UIGMMPeringkatController extends Controller
     {
         $validated = $request->validate([
             'nama_universitas' => ['required', 'string'],
-            'id_metriks' => ['required', 'exists:uigm_r_metriks,id'],
-            'score' => ['required', 'numeric', 'min:0'],
+            'type_metriks' => ['required', 'exists:uigm_r_metriks,nama_metriks_singkat'],
+            'skor' => ['required', 'numeric', 'min:0'],
             'peringkat_dunia' => ['required', 'numeric', 'min:0'],
         ]);
 
+        $uigm_r_metriks = UIGMRMetriks::get(['id', 'nama_metriks_singkat']);
+
+        $metriks = $uigm_r_metriks->firstWhere('nama_metriks_singkat', $validated['type_metriks']);
+
         $uigmm = UIGMMPeringkat::create([
             'nama_universitas' => $validated['nama_universitas'],
-            'id_metriks' => $validated['id_metriks'],
-            'score' => $validated['score'],
+            'id_metriks' => $metriks->id,
+            'skor' => $validated['skor'],
             'peringkat_dunia' => $validated['peringkat_dunia'],
         ]);
 
@@ -94,10 +99,14 @@ class UIGMMPeringkatController extends Controller
         $reader = ReaderEntityFactory::createXLSXReader();
         $reader->open($file->getPathname());
 
-        $header = ['nama_universitas', 'id_metriks', 'score', 'peringkat_dunia'];
-        $isFirstRow = true;
-
         set_time_limit(0);
+
+        // Get all metric short names from the database
+        $uigm_r_metriks = UIGMRMetriks::get(['id', 'nama_metriks_singkat']);
+        $metricShortNames = $uigm_r_metriks->pluck('nama_metriks_singkat')->toArray();
+
+        $isFirstRow = true;
+        $header = [];
 
         foreach ($reader->getSheetIterator() as $sheet) {
             foreach ($sheet->getRowIterator() as $row) {
@@ -111,13 +120,16 @@ class UIGMMPeringkatController extends Controller
 
                 $data = array_combine($header, $cells);
 
-                // Additional validation before creating data
-                $validator = Validator::make($data, [
-                    'nama_universitas' => ['required', 'string'],
-                    'id_metriks' => ['required', 'exists:uigm_r_metriks,id'],
-                    'score' => ['required', 'numeric', 'min:0'],
+                // Build validation rules dynamically
+                $rules = [
                     'peringkat_dunia' => ['required', 'numeric', 'min:0'],
-                ]);
+                    'nama_universitas' => ['required', 'string'],
+                ];
+                foreach ($metricShortNames as $metricShort) {
+                    $rules[$metricShort] = ['required', 'numeric', 'min:0'];
+                }
+
+                $validator = Validator::make($data, $rules);
 
                 if ($validator->fails()) {
                     return response()->json([
@@ -126,12 +138,18 @@ class UIGMMPeringkatController extends Controller
                     ], 400);
                 }
 
-                UIGMMPeringkat::create([
-                    'nama_universitas' => $data['nama_universitas'],
-                    'id_metriks' => $data['id_metriks'],
-                    'score' => $data['score'],
-                    'peringkat_dunia' => $data['peringkat_dunia'],
-                ]);
+                // For each metric column, create a record
+                foreach ($metricShortNames as $metricShort) {
+                    $metriks = $uigm_r_metriks->firstWhere('nama_metriks_singkat', $metricShort);
+                    if ($metriks && isset($data[$metricShort])) {
+                        UIGMMPeringkat::create([
+                            'nama_universitas' => $data['nama_universitas'],
+                            'id_metriks' => $metriks->id,
+                            'skor' => $data[$metricShort],
+                            'peringkat_dunia' => $data['peringkat_dunia'],
+                        ]);
+                    }
+                }
             }
         }
 
@@ -182,15 +200,19 @@ class UIGMMPeringkatController extends Controller
         }
         $validated = $request->validate([
             'nama_universitas' => ['required', 'string'],
-            'id_metriks' => ['required', 'exists:uigm_r_metriks,id'],
-            'score' => ['required', 'numeric', 'min:0'],
+            'type_metriks' => ['required', 'exists:uigm_r_metriks,nama_metriks_singkat'],
+            'skor' => ['required', 'numeric', 'min:0'],
             'peringkat_dunia' => ['required', 'numeric', 'min:0'],
         ]);
 
+        $uigm_r_metriks = UIGMRMetriks::get(['id', 'nama_metriks_singkat']);
+
+        $metriks = $uigm_r_metriks->firstWhere('nama_metriks_singkat', $validated['type_metriks']);
+
         $uigmm->update([
             'nama_universitas' => $validated['nama_universitas'],
-            'id_metriks' => $validated['id_metriks'],
-            'score' => $validated['score'],
+            'id_metriks' => $metriks->id,
+            'skor' => $validated['skor'],
             'peringkat_dunia' => $validated['peringkat_dunia'],
         ]);
 

@@ -25,6 +25,6 @@ class UIGMMPeringkat extends Model
 
     public function metriks()
     {
-        return $this->belongsTo(UIGMMPeringkat::class, 'id_metriks', 'id');
+        return $this->belongsTo(UIGMRMetriks::class, 'id_metriks', 'id');
     }
 }

@@ -14,7 +14,7 @@ class UIGMRMetriksController extends Controller
      */
     public function index(Request $request)
     {
-        $query = UIGMRMetriks::query()->with('metriks');
+        $query = UIGMRMetriks::query();
 
         // search by name
         if ($request->has('nama_metriks_lengkap')) {
